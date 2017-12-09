@@ -40,8 +40,12 @@ initModel =
     }
 
 
-init : Location -> ( Model, Cmd Msg )
-init location =
+type alias Flags =
+    { token : Maybe String }
+
+
+init : Flags -> Location -> ( Model, Cmd Msg )
+init flags location =
     let
         page =
             hashToPage location.hash
@@ -60,8 +64,8 @@ init location =
             , leaderBoard = leaderBoardInitModel
             , login = loginInitModel
             , runner = runnerInitModel
-            , token = Nothing
-            , loggedIn = False
+            , token = Debug.log "SavedToken" flags.token
+            , loggedIn = flags.token /= Nothing
             }
 
         cmds =
@@ -111,13 +115,24 @@ update msg model =
 
                 loggedIn =
                     token /= Nothing
+
+                saveTokenCmd =
+                    case Debug.log "Token" token of
+                        Just jwt ->
+                            saveToken jwt
+
+                        Nothing ->
+                            Cmd.none
             in
                 ( { model
                     | login = loginModel
                     , token = token
                     , loggedIn = loggedIn
                   }
-                , Cmd.map LoginMsg cmd
+                , Cmd.batch
+                    [ Cmd.map LoginMsg cmd
+                    , saveTokenCmd
+                    ]
                 )
 
         RunnerMsg msg ->
@@ -235,11 +250,14 @@ locationToMsg location =
         |> ChangePage
 
 
-main : Program Never Model Msg
+main : Program Flags Model Msg
 main =
-    Navigation.program locationToMsg
+    Navigation.programWithFlags locationToMsg
         { init = init
         , update = update
         , view = view
         , subscriptions = subscriptions
         }
+
+
+port saveToken : String -> Cmd msg

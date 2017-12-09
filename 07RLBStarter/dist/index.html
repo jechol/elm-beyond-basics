@@ -13,7 +13,12 @@
 
   <script src="bundle.js"></script>
   <script>
-    var app = Elm.Main.fullscreen();
+    var token = localStorage.getItem("token");
+    var flags = { token: token };
+    var app = Elm.Main.fullscreen(flags);
+    app.ports.saveToken.subscribe(function (token) {
+      localStorage.setItem("token", token);
+    })
   </script>
 </body>
 
