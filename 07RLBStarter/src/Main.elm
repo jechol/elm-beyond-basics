@@ -88,6 +88,7 @@ type Msg
     | LeaderBoardMsg LeaderBoard.Msg
     | LoginMsg Login.Msg
     | RunnerMsg Runner.Msg
+    | Logout
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -135,6 +136,14 @@ update msg model =
                     ]
                 )
 
+        Logout ->
+            ( { model
+                | loggedIn = False
+                , token = Nothing
+              }
+            , deleteToken ()
+            )
+
         RunnerMsg msg ->
             let
                 ( runnerModel, cmd ) =
@@ -175,6 +184,14 @@ view model =
             ]
 
 
+authHeaderView : Model -> Html Msg
+authHeaderView model =
+    if model.loggedIn then
+        a [ onClick Logout ] [ text "Logout" ]
+    else
+        a [ onClick (Navigate LoginPage) ] [ text "Loin" ]
+
+
 pageHeader : Model -> Html Msg
 pageHeader model =
     header []
@@ -182,12 +199,12 @@ pageHeader model =
         , ul []
             [ li []
                 [ a [ onClick (Navigate RunnerPage) ]
-                    [ text "Link" ]
+                    [ text "Add Runner" ]
                 ]
             ]
         , ul []
             [ li []
-                [ a [ onClick (Navigate LoginPage) ] [ text "Login" ]
+                [ authHeaderView model
                 ]
             ]
         ]
@@ -220,7 +237,7 @@ hashToPage hash =
         "#/login" ->
             LoginPage
 
-        "#/runner" ->
+        "#/add" ->
             RunnerPage
 
         _ ->
@@ -237,7 +254,7 @@ pageToHash page =
             "#/login"
 
         RunnerPage ->
-            "#/runner"
+            "#/add"
 
         NotFound ->
             ""
@@ -261,3 +278,6 @@ main =
 
 
 port saveToken : String -> Cmd msg
+
+
+port deleteToken : () -> Cmd msg
