@@ -21,7 +21,7 @@
     app.ports.saveToken.subscribe(function (token) {
       localStorage.setItem(TOKEN_KEY, token);
     });
-    app.ports.saveToken.subscribe(function () {
+    app.ports.deleteToken.subscribe(function () {
       localStorage.removeItem(TOKEN_KEY, token);
     })
   </script>
