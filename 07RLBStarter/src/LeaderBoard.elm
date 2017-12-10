@@ -7,6 +7,10 @@ import Json.Decode as JD
 import Json.Decode.Pipeline as JDP
 import Json.Encode as JE
 import WebSocket as WS
+import Time
+import Date
+import Date.Extra.Format as DateFormat
+import Date.Extra.Config.Config_en_us as DateConfig
 
 
 -- model
@@ -88,6 +92,7 @@ type Msg
     = SearchInput String
     | Search
     | WsMessage String
+    | Tick Time.Time
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -101,6 +106,34 @@ update msg model =
 
         WsMessage wsMsg ->
             wsMessage wsMsg model
+
+        Tick time ->
+            ( tick model time, Cmd.none )
+
+
+tick : Model -> Time.Time -> Model
+tick model time =
+    let
+        updatedRunners =
+            List.map (advanceDistance time) model.runners
+    in
+        { model | runners = updatedRunners }
+
+
+advanceDistance : Float -> Runner -> Runner
+advanceDistance time runner =
+    let
+        elapsedMinutes =
+            (time - runner.lastMarkerTime) / 1000 / 60
+    in
+        if runner.lastMarkerTime > 0 then
+            { runner
+                | estimatedDistance =
+                    runner.lastMarkerDistance
+                        + (runner.pace * elapsedMinutes)
+            }
+        else
+            runner
 
 
 wsMessage : String -> Model -> ( Model, Cmd Msg )
@@ -203,17 +236,51 @@ runners { query, runners } =
 
 
 runner : Runner -> Html Msg
-runner { name, location, age, bib, estimatedDistance } =
-    tr []
-        [ td [] [ text name ]
-        , td [] [ text location ]
-        , td [] [ text (toString age) ]
-        , td [] [ text (toString bib) ]
-        , td []
-            [ text "1 mi @ 08:30AM (TODO)"
+runner runner =
+    let
+        { name, location, age, bib, estimatedDistance } =
+            runner
+    in
+        tr []
+            [ td [] [ text name ]
+            , td [] [ text location ]
+            , td [] [ text (toString age) ]
+            , td [] [ text (toString bib) ]
+            , td []
+                [ lastMarker runner
+                ]
+            , td [] [ text (formatDistance estimatedDistance) ]
             ]
-        , td [] [ text (toString estimatedDistance) ]
-        ]
+
+
+lastMarker : Runner -> Html Msg
+lastMarker runner =
+    if runner.lastMarkerTime > 0 then
+        text
+            ((formatDistance runner.lastMarkerDistance)
+                ++ " mi @ "
+                ++ (formatTime runner.lastMarkerTime)
+            )
+    else
+        text ""
+
+
+formatTime : Time.Time -> String
+formatTime time =
+    if time > 0 then
+        time
+            |> Date.fromTime
+            |> DateFormat.format DateConfig.config "%H:%M:%S %P"
+    else
+        ""
+
+
+formatDistance : Float -> String
+formatDistance distance =
+    if distance <= 0 then
+        ""
+    else
+        distance * 100 |> round |> toFloat |> flip (/) 100 |> toString
 
 
 runnersHeader : Html Msg
@@ -236,4 +303,7 @@ runnersHeader =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    WS.listen url WsMessage
+    Sub.batch
+        [ WS.listen url WsMessage
+        , Time.every Time.second Tick
+        ]
