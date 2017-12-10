@@ -11,6 +11,7 @@ import Time
 import Date
 import Date.Extra.Format as DateFormat
 import Date.Extra.Config.Config_en_us as DateConfig
+import String
 
 
 -- model
@@ -19,6 +20,7 @@ import Date.Extra.Config.Config_en_us as DateConfig
 type alias Model =
     { error : Maybe String
     , query : String
+    , searchTerm : Maybe String
     , runners : List Runner
     , active : Bool
     }
@@ -55,6 +57,7 @@ initModel : Model
 initModel =
     { error = Nothing
     , query = ""
+    , searchTerm = Nothing
     , runners = []
     , active = False
     }
@@ -102,7 +105,14 @@ update msg model =
             ( { model | query = query }, Cmd.none )
 
         Search ->
-            ( model, Cmd.none )
+            let
+                searchTerm =
+                    if String.isEmpty model.query then
+                        Nothing
+                    else
+                        Just model.query
+            in
+                ( { model | searchTerm = searchTerm }, Cmd.none )
 
         WsMessage wsMsg ->
             wsMessage wsMsg model
@@ -227,8 +237,18 @@ searchForm query =
 
 
 runners : Model -> Html Msg
-runners { query, runners } =
+runners { query, runners, searchTerm } =
     runners
+        |> List.filter
+            (\runner ->
+                searchTerm
+                    |> Maybe.map
+                        (\term ->
+                            String.contains term runner.name
+                        )
+                    |> Maybe.withDefault True
+            )
+        |> List.sortBy (\r -> -r.estimatedDistance)
         |> List.map runner
         |> tbody []
         |> (\r -> runnersHeader :: [ r ])
